@@ -1,0 +1,87 @@
+##############################################################
+# docker-compose.yml  —  心内六科质控系统全栈部署
+# 包含：MySQL 8 + Spring Boot 后端 + Nginx 前端
+##############################################################
+
+version: "3.9"
+
+services:
+
+  # ── MySQL 数据库 ────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: qc-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-Root@2024!}
+      MYSQL_DATABASE:      qc_system
+      MYSQL_USER:          ${DB_USER:-qc_user}
+      MYSQL_PASSWORD:      ${DB_PASS:-qc_pass_2024}
+    ports:
+      - "3306:3306"        # 生产环境可改为只暴露内网端口
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone=+08:00
+      --max-connections=200
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-Root@2024!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - qc-net
+
+  # ── Spring Boot 后端 ────────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: qc-backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST:    mysql
+      DB_PORT:    3306
+      DB_USER:    ${DB_USER:-qc_user}
+      DB_PASS:    ${DB_PASS:-qc_pass_2024}
+      JWT_SECRET: ${JWT_SECRET:-xnl-qc-jwt-secret-key-must-be-long-enough-32chars}
+      TZ:         Asia/Shanghai
+    ports:
+      - "8080:8080"
+    networks:
+      - qc-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/nurses/list || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  # ── Nginx 前端 ──────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: qc-nginx
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ../frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - qc-net
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  qc-net:
+    driver: bridge

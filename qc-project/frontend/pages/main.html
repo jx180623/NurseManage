@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心内六科质控系统</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+  /* 修改密码弹窗 */
+  .pw-overlay {
+    position: fixed; inset: 0; background: rgba(26,26,46,.55);
+    z-index: 500; display: none; align-items: center; justify-content: center;
+  }
+  .pw-overlay.open { display: flex; }
+  .pw-modal {
+    background: #fff; border-radius: 20px; padding: 34px 30px;
+    width: 400px; max-width: 94vw;
+    box-shadow: 0 20px 70px rgba(0,0,0,.35);
+    position: relative; border-top: 4px solid var(--blue);
+  }
+  .pw-modal h3 { font-family:'Noto Serif SC',serif; font-size:18px; font-weight:700; margin-bottom:6px; }
+  .pw-modal p  { font-size:13px; color:var(--muted); margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+  .pw-close { position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; }
+  .pw-close:hover { color: var(--ink); }
+  .pw-errmsg { color:var(--crimson); font-size:13px; margin-bottom:10px; min-height:18px; }
+  .pw-actions { display:flex; gap:10px; margin-top:4px; }
+  .pw-actions .btn { flex:1; padding:11px; font-size:14px; }
+
+  /* 修改密码顶栏按钮 */
+  .btn-chgpw {
+    background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.4);
+    color: #fff; padding: 5px 13px; border-radius: 8px;
+    font-size: 13px; font-family: 'Noto Sans SC', sans-serif; cursor: pointer;
+  }
+  .btn-chgpw:hover { background: rgba(255,255,255,.3); }
+
+  /* ── 打印/PDF 样式 ── */
+  @media print {
+    /* 隐藏所有页面元素，只显示打印容器 */
+    body > *                { display: none !important; }
+    #printContainer         { display: block !important; }
+
+    #printContainer {
+      font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 11pt;
+      color: #1a1a2e;
+      padding: 0;
+      margin: 0;
+    }
+
+    /* 打印页眉 */
+    #printContainer .print-header {
+      text-align: center;
+      border-bottom: 2px solid #c0392b;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+    #printContainer .print-header h1 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 16pt;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    #printContainer .print-header p {
+      font-size: 10pt;
+      color: #7a6e65;
+    }
+
+    /* 卡片去掉阴影和圆角 */
+    #printContainer .card {
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      border: 1px solid #ddd;
+      margin-bottom: 12pt;
+      padding: 10pt 12pt;
+      break-inside: avoid;
+    }
+
+    /* 统计卡片网格 */
+    #printContainer .stats-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 8pt !important;
+      margin-bottom: 12pt !important;
+    }
+    #printContainer .stat-card {
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      border: 1px solid #ddd;
+      padding: 8pt 10pt;
+    }
+    #printContainer .stat-value { font-size: 16pt !important; }
+    #printContainer .stat-label { font-size: 8pt !important; }
+
+    /* 表格 */
+    #printContainer table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      break-inside: auto;
+    }
+    #printContainer thead { display: table-header-group; }
+    #printContainer tr    { break-inside: avoid; }
+    #printContainer th, #printContainer td {
+      padding: 5pt 7pt;
+      border: 1px solid #ccc;
+      text-align: left;
+      vertical-align: top;
+    }
+    #printContainer thead tr th {
+      background: #2c2c4a !important;
+      color: #fff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* 进度条颜色保留 */
+    #printContainer .rate-fill {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* 隐藏按钮、下拉框、输入框 */
+    #printContainer button,
+    #printContainer select,
+    #printContainer input  { display: none !important; }
+
+    /* 分页控制 */
+    #printContainer .card  { page-break-inside: avoid; }
+
+    @page {
+      size: A4 portrait;
+      margin: 15mm 12mm 12mm 12mm;
+    }
+  }
+
+  /* 屏幕上隐藏打印容器 */
+  #printContainer { display: none; }
+
+  /* ── 护士选择弹窗 ── */
+  #nursePickerOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(26,26,46,.5); z-index: 8000;
+    align-items: center; justify-content: center;
+  }
+  #nursePickerOverlay.open { display: flex; }
+  #nursePickerModal {
+    background: #fff; border-radius: 18px; width: 420px; max-width: 94vw;
+    max-height: 80vh; display: flex; flex-direction: column;
+    box-shadow: 0 20px 70px rgba(0,0,0,.35);
+    border-top: 4px solid var(--crimson);
+    overflow: hidden;
+  }
+  #nursePickerModal .npm-head {
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  #nursePickerModal .npm-title { font-family:'Noto Serif SC',serif; font-size:16px; font-weight:700; }
+  #nursePickerModal .npm-close { background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; line-height:1; }
+  #nursePickerModal .npm-search { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink:0; }
+  #nursePickerModal .npm-search input {
+    width: 100%; padding: 7px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 13px; font-family:'Noto Sans SC',sans-serif; outline: none;
+  }
+  #nursePickerModal .npm-search input:focus { border-color: var(--crimson); }
+  #nursePickerModal .npm-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+  #nursePickerModal .npm-item {
+    padding: 10px 20px; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    font-family:'Noto Sans SC',sans-serif; transition: background .1s;
+  }
+  #nursePickerModal .npm-item:hover { background: var(--paper); }
+  #nursePickerModal .npm-item.sel { color: var(--crimson); font-weight: 600; }
+  #nursePickerModal .npm-chk {
+    width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0; transition: all .15s;
+  }
+  #nursePickerModal .npm-item.sel .npm-chk { background: var(--crimson); border-color: var(--crimson); color: #fff; }
+  #nursePickerModal .npm-badge { font-size:11px; color:var(--muted); background:var(--paper-dark); padding:1px 7px; border-radius:8px; margin-left:auto; }
+  #nursePickerModal .npm-foot {
+    padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+    display: flex; gap: 10px; align-items: center;
+  }
+  #nursePickerModal .npm-selected-info { font-size:13px; color:var(--muted); flex:1; }
+  .ms-trigger-btn {
+    width: 100%; min-height: 36px; padding: 6px 12px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: var(--paper); cursor: pointer; text-align: left;
+    font-size: 13px; font-family:'Noto Sans SC',sans-serif;
+    color: var(--ink); display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+    transition: border-color .2s;
+  }
+  .ms-trigger-btn:hover { border-color: var(--crimson); }
+  .ms-tag { background:var(--crimson); color:#fff; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+  .ms-remove { cursor:pointer; opacity:.8; font-size:11px; }
+  .ms-remove:hover { opacity:1; }
+  .ms-ph { color:#bbb; font-style:italic; }
+
+</style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="top-bar">
+  <div class="top-bar-left">
+    <span class="icon">✚</span>
+    <h2>心内六科 · 责班每日质控系统</h2>
+  </div>
+  <div class="top-bar-right">
+    <span class="user-badge" id="userBadge"></span>
+    <button class="btn-chgpw" onclick="openPwModal()">🔑 修改密码</button>
+    <button class="btn-logout" onclick="logout()">退出登录</button>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div class="pw-overlay" id="pwOverlay" onclick="if(event.target===this)closePwModal()">
+  <div class="pw-modal">
+    <button class="pw-close" onclick="closePwModal()">✕</button>
+    <h3>🔑 修改我的登录密码</h3>
+    <p id="pwDesc">仅修改您自己账号的密码，其他护士不受影响</p>
+    <div class="field-group"><label>当前密码</label>
+      <input type="password" id="cpw0" placeholder="输入当前密码" autocomplete="current-password">
+    </div>
+    <div class="field-group"><label>新密码（最少4位）</label>
+      <input type="password" id="cpw1" placeholder="输入新密码" autocomplete="new-password">
+    </div>
+    <div class="field-group"><label>确认新密码</label>
+      <input type="password" id="cpw2" placeholder="再次输入新密码" autocomplete="new-password"
+             onkeydown="if(event.key==='Enter')doChgPw()">
+    </div>
+    <div class="pw-errmsg" id="pwErr"></div>
+    <div class="pw-actions">
+      <button class="btn btn-outline" onclick="closePwModal()">取 消</button>
+      <button class="btn btn-blue"    onclick="doChgPw()">确 认 修 改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+  <div class="tab active"  data-tab="fill">📋 填写质控表</div>
+  <div class="tab"         data-tab="data">🗂 数据管理</div>
+  <div class="tab"         data-tab="stats">📊 数据统计</div>
+  <div class="tab"         data-tab="settings">⚙️ 系统设置</div>
+</div>
+
+<!-- ── FILL PANEL ── -->
+<div class="panel active" id="panel-fill">
+  <div class="mode-banner new-mode" id="modeBanner">
+    <span class="m-icon" id="modeIcon">📝</span>
+    <div class="m-text">
+      <strong id="modeTitle">新建今日质控记录</strong>
+      <span   id="modeSub">今日尚未填写质控表，完整填写后点击「提交」</span>
+    </div>
+    <button class="btn-cancel-edit" id="btnBack" onclick="backToToday()" style="display:none;">↩ 返回今日</button>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+      <span style="font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;">责班每日工作查检表</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:13px;color:var(--muted);font-weight:600;">质控日期：</label>
+          <input type="date" id="qcDate" readonly
+            style="padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;
+            font-size:13px;background:var(--paper-dark);cursor:default;outline:none;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:13px;color:var(--muted);font-weight:600;">填报人：</label>
+          <input type="text" id="qcPerson" readonly
+            style="width:108px;padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
+        </div>
+      </div>
+    </div>
+    <div class="hist-strip">
+      <span class="hist-label">📂 历史记录（点击加载修改）：</span>
+      <div class="hist-pills" id="histPills"></div>
+    </div>
+  </div>
+
+  <div id="formBody"></div>
+
+  <div class="submit-row">
+    <button class="btn btn-blue" id="btnSave"   onclick="saveEdit()"   style="display:none;">💾 &nbsp;保 存 修 改</button>
+    <button class="btn btn-red"  id="btnSubmit" onclick="submitForm()">✓ &nbsp;提 交 今 日 质 控 记 录</button>
+  </div>
+</div>
+
+<!-- ── DATA PANEL ── -->
+<div class="panel" id="panel-data">
+  <div class="lock-screen" id="dataLock">
+    <div class="lk-icon">🔐</div>
+    <h3>管理员验证</h3><p>请输入管理员密码以查看和导出数据</p>
+    <input type="password" id="dataPass" placeholder="管理员密码" onkeydown="if(event.key==='Enter')unlockData()">
+    <br><button class="btn btn-red" style="margin-top:14px;padding:10px 30px;" onclick="unlockData()">验 证</button>
+    <div class="err-msg" id="dataErr" style="display:block;margin-top:8px;">&#8203;</div>
+  </div>
+  <div id="dataContent" style="display:none;"></div>
+</div>
+
+<!-- ── STATS PANEL ── -->
+<div class="panel" id="panel-stats">
+  <div class="lock-screen" id="statsLock">
+    <div class="lk-icon">📊</div>
+    <h3>数据统计</h3><p>请输入管理员密码查看统计分析</p>
+    <input type="password" id="statsPass" placeholder="管理员密码" onkeydown="if(event.key==='Enter')unlockStats()">
+    <br><button class="btn btn-red" style="margin-top:14px;padding:10px 30px;" onclick="unlockStats()">验 证</button>
+    <div class="err-msg" id="statsErr" style="display:block;margin-top:8px;">&#8203;</div>
+  </div>
+  <div id="statsContent" style="display:none;"></div>
+</div>
+
+<!-- ── SETTINGS PANEL ── -->
+<div class="panel" id="panel-settings">
+  <div class="lock-screen" id="settingsLock">
+    <div class="lk-icon">⚙️</div>
+    <h3>系统设置</h3><p>请输入管理员密码进入系统设置</p>
+    <input type="password" id="settingsPass" placeholder="管理员密码" onkeydown="if(event.key==='Enter')unlockSettings()">
+    <br><button class="btn btn-red" style="margin-top:14px;padding:10px 30px;" onclick="unlockSettings()">验 证</button>
+    <div class="err-msg" id="settingsErr" style="display:block;margin-top:8px;">&#8203;</div>
+  </div>
+  <div id="settingsContent" style="display:none;"></div>
+</div>
+
+<div class="toast" id="toastOk"  style="background:var(--success);color:#fff;">✓ 操作成功</div>
+<div class="toast" id="toastSave" style="background:var(--blue);color:#fff;top:120px;">✓ 保存成功</div>
+<div class="toast" id="toastPw"   style="background:var(--blue);color:#fff;top:120px;">✓ 密码修改成功</div>
+
+<!-- 打印专用容器（屏幕上隐藏，打印时显示） -->
+<div id="printContainer"></div>
+
+<!-- 护士选择弹窗（全局单例） -->
+<div id="nursePickerOverlay" onclick="if(event.target===this)closePicker()">
+  <div id="nursePickerModal">
+    <div class="npm-head">
+      <span class="npm-title">选择被质控者</span>
+      <button class="npm-close" onclick="closePicker()">✕</button>
+    </div>
+    <div class="npm-search">
+      <input id="npmSearch" placeholder="搜索姓名…" oninput="npmFilter(this.value)">
+    </div>
+    <div class="npm-list" id="npmList"></div>
+    <div class="npm-foot">
+      <span class="npm-selected-info" id="npmInfo">未选择</span>
+      <button class="btn btn-outline btn-sm" onclick="npmClearAll()">清 空</button>
+      <button class="btn btn-red btn-sm" onclick="closePicker()">确 认</button>
+    </div>
+  </div>
+</div>
+
+
+<script type="module">
+import { Auth, AuthAPI, NurseAPI, ReportAPI, ConfigAPI } from '/js/api.js';
+import { CATEGORIES, FREE_INPUT_KEYS, ADM_FIELDS }       from '/js/constants.js';
+import { toast, showLoading, hideLoading, confirm, today, guardLogin } from '/js/ui.js';
+
+if (!guardLogin()) throw new Error('not logged in');
+
+/* ── State ── */
+let nurseList   = [];
+let histReports = [];
+let editingId   = null;   // null=新建今日, string=正在编辑的报告id
+let msState     = {};     // 多选状态
+let dataOk = false, statsOk = false, settingsOk = false;
+let filterStart = '', filterEnd = '';
+
+/* ── Init ── */
+document.getElementById('userBadge').textContent = `👤 ${Auth.name()}（${Auth.employeeId()}）`;
+document.getElementById('pwDesc').textContent =
+  `当前账号：${Auth.name()}（${Auth.employeeId()}）— 仅修改您自己的密码`;
+
+document.querySelectorAll('.tab').forEach(tab =>
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
+
+(async () => {
+  showLoading('初始化…');
+  const [nr, hr] = await Promise.all([NurseAPI.listEnabled(), ReportAPI.myHistory()]);
+  if (nr?.code === 200) nurseList = nr.data;
+  if (hr?.code === 200) histReports = hr.data;
+  hideLoading();
+
+  // 检测今日是否已有记录
+  const todayRec = histReports.find(r => r.reportDate === today());
+  if (todayRec) {
+    editingId = todayRec.id;
+    document.getElementById('qcDate').value   = todayRec.reportDate;
+    document.getElementById('qcPerson').value = todayRec.submitterName || Auth.name();
+    buildForm(todayRec);
+    setModeEdit(todayRec.reportDate, false);
+  } else {
+    document.getElementById('qcDate').value   = today();
+    document.getElementById('qcPerson').value = Auth.name();
+    buildForm(null);
+    setModeNew();
+  }
+  rebuildPills();
+})();
+
+/* ── 修改密码 ── */
+window.openPwModal = function() {
+  ['cpw0','cpw1','cpw2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pwErr').textContent = '';
+  document.getElementById('pwOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('cpw0').focus(), 80);
+};
+window.closePwModal = function() {
+  document.getElementById('pwOverlay').classList.remove('open');
+};
+window.doChgPw = async function() {
+  const cur  = document.getElementById('cpw0').value;
+  const nw   = document.getElementById('cpw1').value;
+  const cf   = document.getElementById('cpw2').value;
+  const err  = document.getElementById('pwErr');
+  if (!cur)            { err.textContent = '请输入当前密码'; return; }
+  if (nw.length < 4)   { err.textContent = '新密码至少4位'; return; }
+  if (nw !== cf)       { err.textContent = '两次密码不一致'; return; }
+  if (nw === cur)      { err.textContent = '新密码不能与当前密码相同'; return; }
+  showLoading();
+  const res = await AuthAPI.changeMyPassword(cur, nw);
+  hideLoading();
+  if (res?.code !== 200) { err.textContent = res?.message || '修改失败'; return; }
+  closePwModal();
+  toast('密码修改成功！下次登录请使用新密码', 'success');
+};
+
+/* ── Tabs ── */
+function switchTab(t) {
+  const panels = { fill:'panel-fill', data:'panel-data', stats:'panel-stats', settings:'panel-settings' };
+  document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === t));
+  document.querySelectorAll('.panel').forEach(el => el.classList.toggle('active', el.id === panels[t]));
+  if (t === 'data'     && dataOk)     renderData();
+  if (t === 'stats'    && statsOk)    renderStats();
+  if (t === 'settings' && settingsOk) renderSettings();
+}
+
+/* ── Logout ── */
+window.logout = function() { Auth.clear(); location.href = '/index.html'; };
+
+/* ── History pills ── */
+function rebuildPills() {
+  const el = document.getElementById('histPills');
+  // 历史记录去重（按日期），排除今日，取最近7条
+  const seen = new Set();
+  const past = histReports
+    .filter(r => r.reportDate !== today())
+    .filter(r => { if (seen.has(r.reportDate)) return false; seen.add(r.reportDate); return true; })
+    .slice(0, 7);
+  if (!past.length) {
+    el.innerHTML = '<span style="font-size:12px;color:#bbb;font-style:italic;">暂无历史记录</span>';
+    return;
+  }
+  el.innerHTML = past.map(r => {
+    const cur = editingId === r.id;
+    const filler = r.submitterName || r.submitterId || '';
+    return `<span class="hpill${cur ? ' current' : ''}" onclick="loadReport(${r.id})"
+      title="${r.reportDate}（${filler} 填写）">${r.reportDate} ✎</span>`;
+  }).join('');
+}
+
+/* ── Build Form ── */
+function buildForm(rep) {
+  const container = document.getElementById('formBody');
+  container.innerHTML = '';
+  msState = {};
+  const ad = rep?.admData || {};
+
+  // 出入院维度
+  const admRows = ADM_FIELDS.map(f => {
+    const v = ad[f.id] ?? '';
+    const onip = (f.calcToday || f.calcRate) ? `oninput="calcToday()"` : '';
+    return `<div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.7px;">${f.label}</div>
+      <input type="number" min="0" id="a_${f.id}" placeholder="0" value="${v}" ${onip}
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;background:var(--paper);"
+        onfocus="this.style.borderColor='var(--gold)';this.style.background='white'"
+        onblur="this.style.borderColor='var(--border)';this.style.background='var(--paper)'">
+    </div>`;
+  }).join('') + `
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.7px;">今日患者总人数 <span style="color:var(--blue);font-size:10px;">自动计算</span></div>
+      <input type="text" id="a_todayTotal" readonly value="${ad.todayTotal ?? '—'}"
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--blue);border-radius:8px;font-size:14px;font-weight:700;color:var(--blue);background:linear-gradient(135deg,#eaf4fb,#d6eaf8);cursor:default;outline:none;">
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.7px;">陪护率 <span style="color:var(--gold);font-size:10px;">自动计算</span></div>
+      <input type="text" id="a_rate" readonly value="${ad.rate ?? '—'}"
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--gold);border-radius:8px;font-size:14px;font-weight:700;color:var(--gold);background:linear-gradient(135deg,#fffbf0,#fdf5e0);cursor:default;outline:none;">
+    </div>`;
+
+  const dimCard = document.createElement('div');
+  dimCard.style.cssText = 'background:white;border-radius:16px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;border-top:4px solid var(--gold);';
+  dimCard.innerHTML = `
+    <div style="padding:15px 22px;display:flex;align-items:center;gap:10px;cursor:pointer;background:linear-gradient(135deg,#fffbf0,#fdf5e0);" onclick="this.parentElement.classList.toggle('collapsed')">
+      <span style="background:linear-gradient(135deg,var(--gold),#b8922a);color:white;padding:3px 12px;border-radius:18px;font-size:13px;font-weight:600;">维度</span>
+      <span style="font-family:'Noto Serif SC',serif;font-size:15px;font-weight:700;flex:1;">出入院情况</span>
+      <span>▼</span>
+    </div>
+    <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:13px;">${admRows}</div>`;
+  container.appendChild(dimCard);
+
+  // 质控类别
+  CATEGORIES.forEach(cat => {
+    const card = document.createElement('div');
+    card.className = 'cat-card';
+    const itemsHtml = cat.items.map((text, ii) => {
+      const key = `${cat.id}_${ii}`;
+      const d = rep?.items?.find(i => i.itemKey === key) || {};
+      const hasIssue = parseInt(d.issueCount || 0) > 0;
+      const isFree = FREE_INPUT_KEYS.has(key);
+
+      // 被质控者姓名字段
+      let namesField;
+      if (isFree) {
+        namesField = `<div class="fld" style="grid-column:span 2;">
+          <label>被质控者姓名（手工填写）</label>
+          <input type="text" id="nm_${key}" value="${(d.names||'').replace(/"/g,'&quot;')}"
+            placeholder="请手工填写姓名，多人用逗号分隔"
+            class="field-group" style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;background:var(--paper);">
+        </div>`;
+      } else {
+        const saved = d.names ? d.names.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        msState[key] = new Set(saved);
+        namesField = `<div class="fld" style="grid-column:span 2;"><label>被质控者姓名（多选）</label>${buildMs(key, saved)}</div>`;
+      }
+
+      return `<div class="item-row${hasIssue?' has-issue':''}" id="row_${key}">
+        <div class="item-top" onclick="toggleCheck('${key}')">
+          <div class="item-chk${d.checked?' checked':''}" id="chk_${key}">✓</div>
+          <div class="item-text">${text}</div>
+        </div>
+        <div class="item-fields">
+          <div class="fld"><label>质控人数</label><input type="number" min="0" id="cnt_${key}" value="${d.count||''}" placeholder="0" oninput="upIssue('${key}')"></div>
+          <div class="fld"><label>质控问题人数</label><input type="number" min="0" id="ic_${key}" value="${d.issueCount||''}" placeholder="0" oninput="upIssue('${key}')"></div>
+          <div class="fld"><label>不适用人数</label><input type="number" min="0" id="na_${key}" value="${d.naCount||''}" placeholder="0"></div>
+          <div class="fld" style="grid-column:span 2;"><label>质控问题汇总</label><textarea id="is_${key}" placeholder="描述问题情况（无问题可留空）">${d.issueSummary||''}</textarea></div>
+          <div class="fld" style="grid-column:span 2;"><label>原因分析</label><textarea id="ra_${key}" placeholder="填写问题原因分析（可留空）">${d.rootAnalysis||''}</textarea></div>
+          <div class="fld" style="grid-column:span 2;"><label>备注</label><textarea id="rm_${key}" placeholder="其他备注说明（可留空）">${d.remark||''}</textarea></div>
+          ${namesField}
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="cat-header" onclick="this.parentElement.classList.toggle('collapsed');this.querySelector('.cat-toggle').style.transform=this.parentElement.classList.contains('collapsed')?'rotate(-90deg)':''">
+        <span class="cat-badge">${cat.name}</span>
+        <span class="cat-title">共 ${cat.items.length} 项检查内容</span>
+        <span class="cat-toggle">▼</span>
+      </div>
+      <div class="cat-body">${itemsHtml}</div>`;
+    container.appendChild(card);
+  });
+}
+
+// ── 多选弹窗 ──
+let _pickerKey = null;   // 当前打开弹窗的条目 key
+
+function buildMs(key, saved) {
+  msState[key] = new Set(saved);
+  const display = saved.length
+    ? saved.map(n => `<span class="ms-tag">${n}<span class="ms-remove" onclick="event.stopPropagation();msRemove('${key}','${n}')">✕</span></span>`).join('')
+    : '<span class="ms-ph">点击选择被质控者</span>';
+  return `<button type="button" class="ms-trigger-btn" id="mst_${key}"
+    onclick="openPicker('${key}')">${display}</button>`;
+}
+
+function msTag(key, name) {
+  return `<span class="ms-tag">${name}<span class="ms-remove" onclick="event.stopPropagation();msRemove('${key}','${name}')">✕</span></span>`;
+}
+
+function refreshTrigger(key) {
+  const sel = msState[key] || new Set();
+  const btn = document.getElementById('mst_'+key);
+  if (!btn) return;
+  btn.innerHTML = sel.size
+    ? [...sel].map(n => msTag(key, n)).join('')
+    : '<span class="ms-ph">点击选择被质控者</span>';
+}
+
+window.openPicker = function(key) {
+  _pickerKey = key;
+  const sel = msState[key] || (msState[key] = new Set());
+
+  // 构建列表
+  document.getElementById('npmSearch').value = '';
+  const list = document.getElementById('npmList');
+  list.innerHTML = nurseList.map(n => `
+    <div class="npm-item${sel.has(n.name)?' sel':''}" id="npmi_${key}_${n.id}"
+      onclick="npmToggle('${n.name}','${n.id}')">
+      <div class="npm-chk">${sel.has(n.name)?'✓':''}</div>
+      ${n.name}
+      <span class="npm-badge">${n.employeeId}</span>
+    </div>`).join('');
+
+  updateNpmInfo();
+  document.getElementById('nursePickerOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('npmSearch').focus(), 80);
+};
+
+window.closePicker = function() {
+  document.getElementById('nursePickerOverlay').classList.remove('open');
+  if (_pickerKey) refreshTrigger(_pickerKey);
+  _pickerKey = null;
+};
+
+window.npmToggle = function(name, nid) {
+  if (!_pickerKey) return;
+  const sel = msState[_pickerKey] || (msState[_pickerKey] = new Set());
+  sel.has(name) ? sel.delete(name) : sel.add(name);
+  const item = document.getElementById('npmi_'+_pickerKey+'_'+nid);
+  if (item) {
+    item.classList.toggle('sel', sel.has(name));
+    item.querySelector('.npm-chk').textContent = sel.has(name) ? '✓' : '';
+  }
+  updateNpmInfo();
+};
+
+window.npmClearAll = function() {
+  if (!_pickerKey) return;
+  msState[_pickerKey] = new Set();
+  document.getElementById('npmList').querySelectorAll('.npm-item').forEach(el => {
+    el.classList.remove('sel');
+    el.querySelector('.npm-chk').textContent = '';
+  });
+  updateNpmInfo();
+};
+
+window.npmFilter = function(q) {
+  const lq = q.toLowerCase();
+  document.getElementById('npmList').querySelectorAll('.npm-item').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+};
+
+function updateNpmInfo() {
+  if (!_pickerKey) return;
+  const sel = msState[_pickerKey] || new Set();
+  const info = document.getElementById('npmInfo');
+  if (info) info.textContent = sel.size ? `已选 ${sel.size} 人：${[...sel].join('、')}` : '未选择';
+}
+
+window.msRemove = function(key, name) {
+  msState[key]?.delete(name);
+  refreshTrigger(key);
+  // 如果弹窗正好开着，同步更新弹窗内状态
+  if (_pickerKey === key) {
+    const n = nurseList.find(n => n.name === name);
+    if (n) {
+      const item = document.getElementById('npmi_'+key+'_'+n.id);
+      if (item) { item.classList.remove('sel'); item.querySelector('.npm-chk').textContent = ''; }
+    }
+    updateNpmInfo();
+  }
+};
+
+// ── 辅助 ──
+window.toggleCheck = k => document.getElementById('chk_'+k)?.classList.toggle('checked');
+window.upIssue     = k => document.getElementById('row_'+k)?.classList.toggle('has-issue', parseInt(document.getElementById('ic_'+k)?.value||0)>0);
+window.calcToday   = () => {
+  const yest=parseFloat(document.getElementById('a_yesterdayTotal')?.value)||0;
+  const inN =parseFloat(document.getElementById('a_in')?.value)||0;
+  const trIn=parseFloat(document.getElementById('a_transferIn')?.value)||0;
+  const outN=parseFloat(document.getElementById('a_out')?.value)||0;
+  const trOt=parseFloat(document.getElementById('a_transferOut')?.value)||0;
+  const todayVal=yest+inN+trIn-outN-trOt;
+  const todayEl=document.getElementById('a_todayTotal');
+  if(todayEl)todayEl.value=todayVal>=0?todayVal:'—';
+  const escort=parseFloat(document.getElementById('a_escort')?.value)||0;
+  const rateEl=document.getElementById('a_rate');
+  if(rateEl)rateEl.value=todayVal>0?(escort/todayVal*100).toFixed(1)+'%':'—';
+};
+
+function collect() {
+  const admData = {};
+  ADM_FIELDS.forEach(f => { admData[f.id] = parseInt(document.getElementById('a_'+f.id)?.value)||null; });
+  admData.todayTotal = parseInt(document.getElementById('a_todayTotal')?.value)||null;
+  admData.rate       = document.getElementById('a_rate')?.value||'';
+
+  const items = [];
+  CATEGORIES.forEach(cat => cat.items.forEach((text, ii) => {
+    const key = `${cat.id}_${ii}`;
+    const isFree = FREE_INPUT_KEYS.has(key);
+    const names = isFree
+      ? (document.getElementById('nm_'+key)?.value.trim()||'')
+      : [...(msState[key]||new Set())].join(',');
+    items.push({
+      itemKey:      key,
+      category:     cat.name,
+      itemText:     text,
+      namesInputType: isFree ? 'free' : 'multi',
+      checked:      document.getElementById('chk_'+key)?.classList.contains('checked')??false,
+      count:        parseInt(document.getElementById('cnt_'+key)?.value)||null,
+      issueCount:   parseInt(document.getElementById('ic_'+key)?.value)||null,
+      naCount:      parseInt(document.getElementById('na_'+key)?.value)||null,
+      issueSummary: document.getElementById('is_'+key)?.value.trim()||'',
+      rootAnalysis: document.getElementById('ra_'+key)?.value.trim()||'',
+      remark:       document.getElementById('rm_'+key)?.value.trim()||'',
+      names
+    });
+  }));
+  return { admData, items };
+}
+
+// ── 提交 ──
+window.submitForm = async function() {
+  const date   = document.getElementById('qcDate').value;
+  const person = document.getElementById('qcPerson').value.trim();
+  if (!date||!person) { toast('请确认日期和质控者姓名', 'error'); return; }
+
+  showLoading('提交中…');
+  const { admData, items } = collect();
+  const res = await ReportAPI.submit({ reportDate: date, qcPerson: person, admData, items });
+  hideLoading();
+  if (res?.code !== 200) { toast(res?.message||'提交失败', 'error'); return; }
+
+  // 提交成功后切换为编辑模式
+  editingId = res.data.id;
+  const updated = await ReportAPI.myHistory();
+  if (updated?.code === 200) histReports = updated.data;
+  setModeEdit(date, true);
+  rebuildPills();
+  toast('质控记录提交成功！', 'success');
+};
+
+// ── 保存修改 ──
+window.saveEdit = async function() {
+  const date   = document.getElementById('qcDate').value;
+  const person = document.getElementById('qcPerson').value.trim();
+  if (!date||!person) { toast('请确认日期和质控者姓名', 'error'); return; }
+
+  showLoading('保存中…');
+  const { admData, items } = collect();
+  const res = await ReportAPI.submit({ reportDate: date, qcPerson: person, admData, items });
+  hideLoading();
+  if (res?.code !== 200) { toast(res?.message||'保存失败', 'error'); return; }
+
+  const updated = await ReportAPI.myHistory();
+  if (updated?.code === 200) histReports = updated.data;
+  toast('修改已保存', 'info');
+  rebuildPills();
+  if (dataOk) renderData();
+};
+
+// ── 加载历史 ──
+window.loadReport = async function(id) {
+  showLoading('加载记录…');
+  const updated = await ReportAPI.myHistory();
+  hideLoading();
+  const rep = updated?.data?.find(r => r.id === id);
+  if (!rep) { toast('找不到该记录', 'error'); return; }
+  editingId = id;
+  document.getElementById('qcDate').value   = rep.reportDate;
+  document.getElementById('qcPerson').value = Auth.name();
+  buildForm(rep);
+  setModeEdit(rep.reportDate, false);
+  rebuildPills();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// ── 返回今日 ──
+window.backToToday = async function() {
+  const todayRec = histReports.find(r => r.reportDate === today());
+  if (todayRec) {
+    editingId = todayRec.id;
+    document.getElementById('qcDate').value   = todayRec.reportDate;
+    document.getElementById('qcPerson').value = Auth.name();
+    buildForm(todayRec);
+    setModeEdit(todayRec.reportDate, false);
+  } else {
+    editingId = null;
+    document.getElementById('qcDate').value   = today();
+    document.getElementById('qcPerson').value = Auth.name();
+    buildForm(null);
+    setModeNew();
+  }
+  rebuildPills();
+};
+
+function setModeNew() {
+  document.getElementById('modeBanner').className = 'mode-banner new-mode';
+  document.getElementById('modeIcon').textContent  = '📝';
+  document.getElementById('modeTitle').textContent = '新建今日质控记录';
+  document.getElementById('modeSub').textContent   = '今日尚未填写质控表，完整填写后点击「提交今日质控记录」';
+  document.getElementById('btnBack').style.display   = 'none';
+  document.getElementById('btnSubmit').style.display = '';
+  document.getElementById('btnSave').style.display   = 'none';
+}
+function setModeEdit(date, justSubmitted = false) {
+  const isToday = date === today();
+  document.getElementById('modeBanner').className = 'mode-banner edit-mode';
+  document.getElementById('modeIcon').textContent  = '✎';
+  document.getElementById('modeTitle').textContent = justSubmitted
+    ? `✓ 今日质控记录已提交（${date}）`
+    : isToday ? `修改今日质控记录（${date}）` : `修改历史记录（${date}）`;
+  document.getElementById('modeSub').textContent = justSubmitted
+    ? '记录已保存，仍可继续补充修改，修改后点击「保存修改」'
+    : isToday ? '今日记录已存在，修改后点击「保存修改」'
+              : '正在修改历史记录，点击「返回今日」退出';
+  document.getElementById('btnBack').style.display   = isToday ? 'none' : '';
+  document.getElementById('btnSubmit').style.display = 'none';
+  document.getElementById('btnSave').style.display   = '';
+}
+
+// ── Data Panel ──
+window.unlockData = async function() {
+  const pw = document.getElementById('dataPass').value;
+  const res = await AuthAPI.login(Auth.employeeId(), pw);
+  if (res?.code !== 200 || !res.data?.admin) { document.getElementById('dataErr').textContent='密码错误或非管理员'; return; }
+  localStorage.setItem('qc_token', res.data.token); localStorage.setItem('qc_admin','1');
+  dataOk = true;
+  document.getElementById('dataLock').style.display='none';
+  document.getElementById('dataContent').style.display='block';
+  renderData();
+};
+
+async function renderData() {
+  const el = document.getElementById('dataContent');
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">加载中…</div>';
+  const res = await ReportAPI.adminAll(filterStart||null, filterEnd||null);
+  if (res?.code !== 200) { el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--crimson);">${res?.message||'加载失败'}</div>`; return; }
+  const reports = res.data;
+  const rows = [];
+  reports.forEach(rep => { (rep.items||[]).forEach(it => rows.push({rep,it})); if(!rep.items?.length) rows.push({rep,it:null}); });
+  const dates = [...new Set(reports.map(r=>r.reportDate))].length;
+  const issueRows = rows.filter(r=>parseInt(r.it?.issueCount||0)>0).length;
+
+  el.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">累计填报天数</div><div class="stat-value">${dates}</div></div>
+      <div class="stat-card gold"><div class="stat-label">当前日报数</div><div class="stat-value">${reports.length}</div></div>
+      <div class="stat-card green"><div class="stat-label">发现问题条目</div><div class="stat-value">${issueRows}</div></div>
+    </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div><div class="card-title" style="margin-bottom:4px;">质控记录明细</div>
+        <div style="font-size:13px;color:var(--muted);">共 ${reports.length} 份 · ${rows.length} 条目</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="doExport()">⬇ 导出 Excel</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <label>起始：</label><input type="date" value="${filterStart}" onchange="filterStart=this.value;renderData()">
+      <label>结束：</label><input type="date" value="${filterEnd}" onchange="filterEnd=this.value;renderData()">
+      <button class="btn btn-outline btn-sm" onclick="filterStart='';filterEnd='';renderData()">重置</button>
+      <span class="record-count">${rows.length} 行</span>
+    </div>
+    <div class="tbl-wrap">
+      ${rows.length===0?'<div class="no-data"><span class="ni">📭</span>暂无记录</div>':`
+      <table><thead><tr>
+        <th>质控日期</th><th>填报人</th><th>质控者</th>
+        <th>昨日人数</th><th>今日人数</th><th>陪护率</th>
+        <th>维度</th><th>查检条目</th><th>类型</th><th>完成</th>
+        <th>质控人数</th><th>问题人数</th><th>不适用</th><th>问题汇总</th><th>被质控者</th>
+        <th>最后修改</th><th>操作</th>
+      </tr></thead><tbody>
+        ${rows.map(({rep,it})=>`<tr>
+          <td>${rep.reportDate}</td>
+          <td>${rep.submitterName||rep.submitterId}</td>
+          <td>${rep.qcPerson||''}</td>
+          <td>${rep.admData?.yesterdayTotal??'—'}</td>
+          <td>${rep.admData?.todayTotal??'—'}</td>
+          <td>${rep.admData?.rate||'—'}</td>
+          <td>${it?`<span class="badge-cat">${it.category}</span>`:'—'}</td>
+          <td style="max-width:190px;word-break:break-all;font-size:12px;">${it?.itemText||'—'}</td>
+          <td><span style="font-size:11px;padding:2px 7px;border-radius:8px;${it?.namesInputType==='free'?'background:#fff9e6;color:#b7860b':'background:var(--paper-dark);color:var(--muted)'};">${it?.namesInputType==='free'?'手工':'多选'}</span></td>
+          <td>${it?.checked?'<span class="badge-ok">✓</span>':'—'}</td>
+          <td>${it?.count??'—'}</td>
+          <td>${it?.issueCount?`<span class="badge-issue">${it.issueCount}</span>`:'—'}</td>
+          <td>${it?.naCount??'—'}</td>
+          <td style="max-width:160px;word-break:break-all;font-size:12px;">${it?.issueSummary||'—'}</td>
+          <td style="font-size:12px;">${it?.names||'—'}</td>
+          <td style="font-size:11px;color:var(--muted);white-space:nowrap;">${rep.lastEdit||'—'}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="delReport(${rep.id})" style="padding:3px 9px;">删除</button></td>
+        </tr>`).join('')}
+      </tbody></table>`}
+    </div>`;
+}
+window.renderData = renderData;
+window.delReport = async function(id) {
+  if (!await confirm('确定删除该日报？')) return;
+  showLoading(); const res = await ReportAPI.delete(id); hideLoading();
+  if (res?.code!==200){toast(res?.message||'删除失败','error');return;}
+  toast('已删除','success'); renderData();
+};
+window.doExport = async function() {
+  showLoading('导出中…');
+  try {
+    const {blob,filename} = await ReportAPI.exportExcel(filterStart||null, filterEnd||null);
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+    toast('导出成功！','success');
+  } catch(e){toast('导出失败：'+e.message,'error');}
+  hideLoading();
+};
+
+// ── Stats ──────────────────────────────────────────────────────
+let stStart = '', stEnd = '', stTrendDim = '全部维度';
+
+window.unlockStats = async function() {
+  const pw = document.getElementById('statsPass').value;
+  const res = await AuthAPI.login(Auth.employeeId(), pw);
+  if (res?.code!==200||!res.data?.admin){document.getElementById('statsErr').textContent='密码错误';return;}
+  localStorage.setItem('qc_token',res.data.token);localStorage.setItem('qc_admin','1');
+  statsOk=true;
+  document.getElementById('statsLock').style.display='none';
+  document.getElementById('statsContent').style.display='block';
+  // 默认统计近3个月
+  const now=new Date();
+  stEnd=today();
+  stStart=new Date(now.getFullYear(),now.getMonth()-2,1).toISOString().slice(0,10);
+  renderStats();
+};
+
+function calcItemRate(cnt,issue,na){
+  const c=parseInt(cnt||0),i=parseInt(issue||0),n=parseInt(na||0);
+  const denom=c-n;
+  if(denom<=0)return null;
+  return((c-i-n)/denom*100);
+}
+
+async function renderStats(){
+  const el=document.getElementById('statsContent');
+  el.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">加载统计数据中…</div>';
+
+  // 从后端获取所有日报数据（管理员接口）
+  const res=await ReportAPI.adminAll(stStart||null,stEnd||null);
+  if(res?.code!==200){
+    el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--crimson);">${res?.message||'加载失败'}</div>`;
+    return;
+  }
+  const reps=res.data||[];
+
+  // ── 聚合计算 ──
+  const CATS_DEF=[
+    {id:'basic',name:'基础护理',items:['科室患者基础护理质量（三短六洁、床单位情况）','护理员能说出重点患者的风险因素：一级、压疮、高跌、管路、皮肤']},
+    {id:'safety',name:'安全',items:['科室患者口服给药落实情况','科室患者治疗卡执行完成并签名','科室抢救车完好率','新入院/转入患者腕带正确佩戴，必要时重新打印，有护理记录']},
+    {id:'quality',name:'优质',items:['科室患者ADL与护理级别匹配','科室责负责患者均有药单并宣教内容正确','科室患者已完成清单查询方式宣教','当日科室新入院患者已完成杏一或便利店物品购买方式宣教','午餐品质询问患者就餐满意情况（每日填1个患者，床号 姓名 反馈情况）','压疮/高风险压疮患者皮肤护理及时率']},
+    {id:'discipline',name:'纪律',items:['护士到岗情况']},
+    {id:'tube',name:'管路',items:['科室患者三管评估已完成','科室新建管路患者已完成"非计划拔管"系统填写']},
+    {id:'sevens',name:'7S',items:['科室负责 7S 分担区已完成整理']},
+    {id:'fall',name:'防跌措施落实情况',items:['科室患者胃肠镜相关跌倒风险评估已落实','科室高跌患者危险因素已与护理员完成交接','科室高跌患者均有小黄人（尤其关注转入和术后）','科室高跌患者知晓小黄人作用','科室高跌患者知晓起床三部曲等防跌知识','科室高跌患者知晓呼叫器使用方法（床头及卫生间，并且呼叫器在便于拿取的地方）','科室头晕/黑蒙的患者知晓防跌等处理措施','科室高跌患者拖鞋合格','护理员能说出分管高跌患者及风险因素','科室高跌患者均有红色腕带（尤其关注转入和术后）']},
+    {id:'specialty',name:'专科指标',items:['责负责心衰患者有体重监测（入组患者标准见备注）','责组完成患者吞咽能力评估（入组患者标准见备注）']}
+  ];
+
+  const itemAgg={},catAgg={},nurseIssue={};
+  let admTotalSum=0,admLevel1Sum=0,admLevel4Sum=0;
+  const admRateArr=[];
+  const monthCatMap={};
+
+  reps.forEach(rep=>{
+    // 出入院聚合
+    const a=rep.admData||{};
+    const todayVal=parseInt(a.todayTotal)||0;
+    admTotalSum+=todayVal;
+    admLevel1Sum+=parseInt(a.level1)||0;
+    admLevel4Sum+=parseInt(a.level4)||0;
+    if(todayVal>0)admRateArr.push((parseInt(a.escort)||0)/todayVal*100);
+
+    // 月度趋势
+    const m=rep.reportDate.slice(0,7);
+    if(!monthCatMap[m])monthCatMap[m]={};
+
+    const itemsArr=rep.items||[];
+    CATS_DEF.forEach(cat=>{
+      if(!catAgg[cat.name])catAgg[cat.name]={cnt:0,issue:0,na:0};
+      if(!monthCatMap[m][cat.name])monthCatMap[m][cat.name]={cnt:0,issue:0,na:0};
+      cat.items.forEach((txt,ii)=>{
+        const key=`${cat.id}_${ii}`;
+        // 后端返回的是数组，按 itemKey 查找
+        const d=itemsArr.find(it=>it.itemKey===key)||{};
+        const cnt=parseInt(d.count||0),issue=parseInt(d.issueCount||0),na=parseInt(d.naCount||0);
+        if(!itemAgg[key])itemAgg[key]={cnt:0,issue:0,na:0,txt,catName:cat.name};
+        itemAgg[key].cnt+=cnt;itemAgg[key].issue+=issue;itemAgg[key].na+=na;
+        catAgg[cat.name].cnt+=cnt;catAgg[cat.name].issue+=issue;catAgg[cat.name].na+=na;
+        monthCatMap[m][cat.name].cnt+=cnt;monthCatMap[m][cat.name].issue+=issue;monthCatMap[m][cat.name].na+=na;
+        if(issue>0&&d.names){
+          d.names.split(',').forEach(nm=>{
+            nm=nm.trim();if(!nm)return;
+            if(!nurseIssue[nm])nurseIssue[nm]={total:0,cats:{},items:{}};
+            nurseIssue[nm].total+=issue;
+            nurseIssue[nm].cats[cat.name]=(nurseIssue[nm].cats[cat.name]||0)+issue;
+            nurseIssue[nm].items[txt]=(nurseIssue[nm].items[txt]||0)+issue;
+          });
+        }
+      });
+    });
+  });
+
+  const admRateAvg=admRateArr.length>0?(admRateArr.reduce((a,b)=>a+b,0)/admRateArr.length):null;
+  const months=Object.keys(monthCatMap).sort();
+  const catRows=CATS_DEF.map(cat=>{
+    const a=catAgg[cat.name]||{cnt:0,issue:0,na:0};
+    return{name:cat.name,rate:calcItemRate(a.cnt,a.issue,a.na),cnt:a.cnt,issue:a.issue,na:a.na};
+  });
+  const itemRows=Object.values(itemAgg).map(it=>({...it,rate:calcItemRate(it.cnt,it.issue,it.na)}))
+    .sort((a,b)=>(a.rate??101)-(b.rate??101));
+  const nurseRows=Object.entries(nurseIssue).map(([nm,v])=>({nm,...v})).sort((a,b)=>b.total-a.total);
+  const totCnt=Object.values(itemAgg).reduce((s,v)=>s+v.cnt,0);
+  const totIss=Object.values(itemAgg).reduce((s,v)=>s+v.issue,0);
+  const totNa =Object.values(itemAgg).reduce((s,v)=>s+v.na,0);
+  const overallRate=calcItemRate(totCnt,totIss,totNa);
+
+  function rTag(r){
+    if(r===null)return'<span style="color:#bbb;font-size:12px;">无数据</span>';
+    const cls=r>=95?'p-hi':r>=85?'p-md':'p-lo';
+    return`<span class="p-tag ${cls}">${r.toFixed(1)}%</span>`;
+  }
+  function rBar(r){
+    if(r===null)return'';
+    const color=r>=95?'var(--success)':r>=85?'var(--gold)':'var(--crimson)';
+    return`<div class="rate-bar"><div class="rate-fill" style="width:${Math.min(r,100)}%;background:${color};"></div></div>`;
+  }
+
+  const dimOptions=['全部维度',...CATS_DEF.map(c=>c.name)]
+    .map(n=>`<option value="${n}"${n===stTrendDim?'selected':''}>${n}</option>`).join('');
+
+  el.innerHTML=`
+    <!-- 时间筛选 -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <span style="font-family:'Noto Serif SC',serif;font-size:17px;font-weight:700;">📊 质控数据统计</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;">
+          <label style="font-size:13px;color:var(--muted);font-weight:600;">起始：</label>
+          <input type="date" id="st_s" value="${stStart}" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;outline:none;">
+          <label style="font-size:13px;color:var(--muted);font-weight:600;">截止：</label>
+          <input type="date" id="st_e" value="${stEnd}" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;outline:none;">
+          <button class="btn btn-red btn-sm" onclick="stStart=document.getElementById('st_s').value;stEnd=document.getElementById('st_e').value;renderStats()">查询</button>
+          <button class="btn btn-outline btn-sm" onclick="stPreset('month')">本月</button>
+          <button class="btn btn-outline btn-sm" onclick="stPreset('quarter')">本季</button>
+          <button class="btn btn-outline btn-sm" onclick="stPreset('year')">本年</button>
+          <button class="btn btn-gold btn-sm" onclick="exportStatsPDF()" style="white-space:nowrap;">🖨 导出 PDF</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:13px;color:var(--muted);">统计范围：<strong>${stStart||'全部'}</strong> 至 <strong>${stEnd||'全部'}</strong>，共纳入 <strong>${reps.length}</strong> 份日报</div>
+    </div>
+
+    <!-- 概览卡片 row1：质控 -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">纳入日报数</div><div class="stat-value">${reps.length}</div></div>
+      <div class="stat-card gold"><div class="stat-label">总体正确率</div><div class="stat-value" style="font-size:22px;">${overallRate===null?'无数据':overallRate.toFixed(1)+'%'}</div></div>
+      <div class="stat-card green"><div class="stat-label">达标维度（≥95%）</div><div class="stat-value">${catRows.filter(r=>r.rate!==null&&r.rate>=95).length}</div></div>
+      <div class="stat-card"><div class="stat-label">需关注维度（＜85%）</div><div class="stat-value" style="color:var(--crimson);">${catRows.filter(r=>r.rate!==null&&r.rate<85).length}</div></div>
+    </div>
+
+    <!-- 概览卡片 row2：住院指标 -->
+    <div class="stats-grid" style="margin-bottom:20px;">
+      <div class="stat-card" style="border-left-color:#8e44ad;">
+        <div class="stat-label">住院总人数（今日计）</div>
+        <div class="stat-value">${admTotalSum}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">各日今日患者总人数之和</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#16a085;">
+        <div class="stat-label">一级人数合计</div>
+        <div class="stat-value">${admLevel1Sum}</div>
+      </div>
+      <div class="stat-card" style="border-left-color:#d35400;">
+        <div class="stat-label">四级手术人数合计</div>
+        <div class="stat-value">${admLevel4Sum}</div>
+      </div>
+      <div class="stat-card" style="border-left-color:var(--blue);">
+        <div class="stat-label">陪护率（均值）</div>
+        <div class="stat-value" style="font-size:22px;">${admRateAvg===null?'—':admRateAvg.toFixed(1)+'%'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">各日陪护率的算术平均</div>
+      </div>
+    </div>
+
+    <!-- 柏拉图 & 维度正确率 并排 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:16px;margin-bottom:16px;">
+
+      <!-- 问题频次柏拉图 -->
+      <div class="card" style="margin-bottom:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+          <div class="card-title" style="margin-bottom:0;">📉 问题频次分析（柏拉图）</div>
+          <select onchange="stTrendDim=this.value;renderStats()"
+            style="padding:5px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;cursor:pointer;background:white;">
+            ${dimOptions}
+          </select>
+        </div>
+        <div class="card-desc" style="margin-bottom:12px;">按问题人数从高到低排列，帮助识别导致 80% 问题的关键少数条目</div>
+        ${(()=>{
+          let pi=Object.values(itemAgg).filter(it=>it.issue>0);
+          if(stTrendDim&&stTrendDim!=='全部维度')pi=pi.filter(it=>it.catName===stTrendDim);
+          pi=pi.sort((a,b)=>b.issue-a.issue).slice(0,20);
+          if(!pi.length)return'<div class="no-data"><span class="ni">✅</span>暂无问题数据</div>';
+          const tot=pi.reduce((s,it)=>s+it.issue,0);
+          let cum=0;
+          const colorMap={'基础护理':'#c0392b','安全':'#2980b9','优质':'#27ae60','纪律':'#8e44ad','管路':'#d35400','7S':'#16a085','防跌措施落实情况':'#f39c12','专科指标':'#34495e'};
+          return`<div style="overflow:auto;max-height:360px;">
+          <table class="tbl-wrap" style="width:100%;border-collapse:collapse;">
+            <thead style="position:sticky;top:0;z-index:1;background:linear-gradient(135deg,var(--ink),var(--ink-light));">
+              <tr>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;text-align:center;width:28px;">序</th>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">查检条目</th>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">问题人数</th>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">单项占比</th>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">累计占比</th>
+                <th style="padding:8px 10px;color:rgba(255,255,255,.8);font-size:11px;min-width:80px;">频次条</th>
+              </tr>
+            </thead>
+            <tbody>${pi.map((it,i)=>{
+              cum+=it.issue;
+              const pct=(it.issue/tot*100).toFixed(1);
+              const cumPct=(cum/tot*100).toFixed(1);
+              const dot=colorMap[it.catName]||'#7f8c8d';
+              const barW=Math.round(it.issue/pi[0].issue*100);
+              const is80=cum/tot>=0.8&&(cum-it.issue)/tot<0.8;
+              return`<tr style="${is80?'border-bottom:2px solid rgba(192,57,43,.5)':''}">
+                <td style="padding:9px 10px;text-align:center;color:var(--muted);font-size:12px;">${i+1}</td>
+                <td style="padding:9px 10px;max-width:200px;">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:5px;vertical-align:middle;"></span>
+                  <span style="font-size:12px;" title="${it.txt}">${it.txt.length>18?it.txt.slice(0,18)+'…':it.txt}</span>
+                  <div style="font-size:11px;color:var(--muted);margin-top:1px;">${it.catName}</div>
+                </td>
+                <td style="padding:9px 10px;text-align:center;font-weight:600;color:var(--crimson);">${it.issue}</td>
+                <td style="padding:9px 10px;text-align:center;font-size:12px;">${pct}%</td>
+                <td style="padding:9px 10px;text-align:center;">
+                  <span style="font-size:12px;font-weight:600;color:${parseFloat(cumPct)<=80?'var(--crimson)':'var(--muted)'};">${cumPct}%</span>
+                </td>
+                <td style="padding:9px 10px;">
+                  <div style="height:8px;border-radius:4px;background:var(--paper-dark);overflow:hidden;">
+                    <div style="height:100%;width:${barW}%;border-radius:4px;background:${dot};"></div>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+            共 ${pi.length} 个条目有问题记录 · 总问题人次 <strong>${tot}</strong> · 红色累计占比为导致80%问题的关键条目
+          </div>`;
+        })()}
+      </div>
+
+      <!-- 各维度正确率对比 -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-title">📊 各维度正确率对比</div>
+        <div class="card-desc">按正确率从低到高排列，颜色标注达标情况</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:linear-gradient(135deg,var(--ink),var(--ink-light));">
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">维度</th>
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">质控人数</th>
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">问题人数</th>
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">不适用</th>
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;">正确率</th>
+            <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;min-width:120px;">达标进度</th>
+          </tr></thead>
+          <tbody>${catRows.sort((a,b)=>(a.rate??101)-(b.rate??101)).map(r=>{
+            const color=r.rate===null?'#ccc':r.rate>=95?'var(--success)':r.rate>=85?'var(--gold)':'var(--crimson)';
+            const bgRow=r.rate===null?'':r.rate>=95?'rgba(39,174,96,.04)':r.rate>=85?'rgba(212,168,67,.04)':'rgba(192,57,43,.04)';
+            return`<tr style="background:${bgRow};border-bottom:1px solid var(--paper-dark);">
+              <td style="padding:10px 12px;"><strong>${r.name}</strong></td>
+              <td style="padding:10px 12px;text-align:center;">${r.cnt}</td>
+              <td style="padding:10px 12px;text-align:center;color:var(--crimson);font-weight:600;">${r.issue}</td>
+              <td style="padding:10px 12px;text-align:center;color:var(--muted);">${r.na}</td>
+              <td style="padding:10px 12px;text-align:center;">${rTag(r.rate)}</td>
+              <td style="padding:10px 12px;">
+                <div style="height:10px;border-radius:5px;background:var(--paper-dark);overflow:hidden;margin-bottom:3px;">
+                  <div style="height:100%;width:${r.rate===null?0:Math.min(r.rate,100)}%;border-radius:5px;background:${color};"></div>
+                </div>
+                <div style="font-size:10px;color:var(--muted);">
+                  ${r.rate===null?'无数据':r.rate>=95?'✓ 达标（≥95%）':r.rate>=85?'△ 待改善（85~95%）':'✕ 需关注（<85%）'}
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+        <div style="display:flex;gap:14px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--success);margin-right:4px;vertical-align:middle;"></span>达标 ≥95%：${catRows.filter(r=>r.rate!==null&&r.rate>=95).length} 个</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gold);margin-right:4px;vertical-align:middle;"></span>待改善 85~95%：${catRows.filter(r=>r.rate!==null&&r.rate>=85&&r.rate<95).length} 个</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--crimson);margin-right:4px;vertical-align:middle;"></span>需关注 <85%：${catRows.filter(r=>r.rate!==null&&r.rate<85).length} 个</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 各维度正确率详情表 -->
+    <div class="card">
+      <div class="card-title">各维度正确率详情</div>
+      <div class="card-desc">正确率 = （质控人数 − 问题人数 − 不适用人数）÷（质控人数 − 不适用人数）× 100%</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:linear-gradient(135deg,var(--ink),var(--ink-light));">
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">维度</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">质控人数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">问题人数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">不适用人数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">正确率</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;min-width:120px;">进度条</th>
+        </tr></thead>
+        <tbody>${catRows.map(r=>`<tr style="border-bottom:1px solid var(--paper-dark);">
+          <td style="padding:10px 12px;"><strong>${r.name}</strong></td>
+          <td style="padding:10px 12px;text-align:center;">${r.cnt}</td>
+          <td style="padding:10px 12px;text-align:center;">${r.issue}</td>
+          <td style="padding:10px 12px;text-align:center;">${r.na}</td>
+          <td style="padding:10px 12px;text-align:center;">${rTag(r.rate)}</td>
+          <td style="padding:10px 12px;">${rBar(r.rate)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    <!-- 条目正确率排行 -->
+    <div class="card">
+      <div class="card-title">条目正确率排行（最低前15条）</div>
+      <div class="card-desc">展示正确率最低的条目，便于重点关注和改进</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:linear-gradient(135deg,var(--ink),var(--ink-light));">
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">维度</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">查检条目</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">质控人数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">问题人数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">不适用</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">正确率</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;min-width:100px;">进度条</th>
+        </tr></thead>
+        <tbody>${itemRows.slice(0,15).map(r=>`<tr style="border-bottom:1px solid var(--paper-dark);">
+          <td style="padding:10px 12px;"><span class="badge-cat">${r.catName}</span></td>
+          <td style="padding:10px 12px;max-width:200px;font-size:12px;">${r.txt}</td>
+          <td style="padding:10px 12px;text-align:center;">${r.cnt}</td>
+          <td style="padding:10px 12px;text-align:center;">${r.issue}</td>
+          <td style="padding:10px 12px;text-align:center;">${r.na}</td>
+          <td style="padding:10px 12px;text-align:center;">${rTag(r.rate)}</td>
+          <td style="padding:10px 12px;">${rBar(r.rate)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    <!-- 被质控人员问题汇总 -->
+    <div class="card">
+      <div class="card-title">👩‍⚕️ 被质控人员问题汇总</div>
+      <div class="card-desc">统计每位护士在各维度和条目中被记录问题的次数，识别重点关注对象</div>
+      ${nurseRows.length===0?'<div class="no-data"><span class="ni">✅</span>统计时间段内无问题记录</div>':`
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:linear-gradient(135deg,var(--ink),var(--ink-light));">
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">姓名</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;">问题总次数</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">主要问题维度（前3）</th>
+          <th style="padding:9px 12px;color:rgba(255,255,255,.8);font-size:11px;text-align:left;">主要问题条目（前3）</th>
+        </tr></thead>
+        <tbody>${nurseRows.map(r=>{
+          const topCats=Object.entries(r.cats).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}(${v}次)`).join('、');
+          const topItems=Object.entries(r.items).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k.slice(0,18)}…(${v}次)`).join('<br>');
+          return`<tr style="border-bottom:1px solid var(--paper-dark);">
+            <td style="padding:10px 12px;"><strong>${r.nm}</strong></td>
+            <td style="padding:10px 12px;text-align:center;"><span class="badge-issue">${r.total}次</span></td>
+            <td style="padding:10px 12px;font-size:12px;">${topCats||'—'}</td>
+            <td style="padding:10px 12px;font-size:12px;max-width:220px;">${topItems||'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`}
+    </div>`;
+}
+window.renderStats = renderStats;
+
+window.stPreset = function(p){
+  const now=new Date();
+  stEnd=today();
+  if(p==='month')   stStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  else if(p==='quarter'){const q=Math.floor(now.getMonth()/3);stStart=new Date(now.getFullYear(),q*3,1).toISOString().slice(0,10);}
+  else stStart=new Date(now.getFullYear(),0,1).toISOString().slice(0,10);
+  renderStats();
+};
+
+window.exportStatsPDF = function() {
+  const src = document.getElementById('statsContent');
+  if (!src || src.style.display === 'none' || !src.innerHTML.trim()) {
+    toast('请先加载统计数据后再导出', 'warn'); return;
+  }
+
+  const range  = (stStart || '全部') + ' 至 ' + (stEnd || '全部');
+  const genTime = new Date().toLocaleString('zh-CN', { hour12: false });
+
+  const pc = document.getElementById('printContainer');
+  pc.innerHTML = `
+    <div class="print-header">
+      <h1>心内六科护理质控统计报告</h1>
+      <p>统计时间范围：${range} &nbsp;·&nbsp; 生成时间：${genTime}</p>
+    </div>
+    ${src.innerHTML}`;
+
+  // 隐藏打印内容中的交互控件（筛选栏第一个 card 里的按钮/input）
+  pc.querySelectorAll('button, select, input, label').forEach(el => {
+    el.style.display = 'none';
+  });
+
+  window.print();
+
+  // 打印完清空，避免占用内存
+  setTimeout(() => { pc.innerHTML = ''; }, 1000);
+};
+window.unlockSettings = async function() {
+  const pw = document.getElementById('settingsPass').value;
+  const res = await AuthAPI.login(Auth.employeeId(), pw);
+  if (res?.code!==200||!res.data?.admin){document.getElementById('settingsErr').textContent='密码错误';return;}
+  localStorage.setItem('qc_token',res.data.token);localStorage.setItem('qc_admin','1');
+  settingsOk=true; document.getElementById('settingsLock').style.display='none'; document.getElementById('settingsContent').style.display='block';
+  renderSettings();
+};
+
+async function renderSettings() {
+  const nr = await NurseAPI.listAll();
+  const nurses = nr?.data || [];
+  const el = document.getElementById('settingsContent');
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title">🔐 管理员密码</div>
+      <div class="card-desc">修改管理员密码（用于数据管理、系统设置）</div>
+      <div class="field-grid">
+        <div class="field-group"><label>当前管理员密码</label><input type="password" id="ap0" placeholder="输入当前密码"></div>
+        <div class="field-group"><label>新密码</label><input type="password" id="ap1" placeholder="新密码（最少4位）"></div>
+        <div class="field-group"><label>确认新密码</label><input type="password" id="ap2" placeholder="再次输入"></div>
+      </div>
+      <div class="err-msg" id="apErr"></div>
+      <button class="btn btn-blue" style="margin-top:6px;" onclick="saveAdminPw()">保 存 管 理 员 密 码</button>
+    </div>
+    <div class="card">
+      <div class="card-title">👩‍⚕️ 护士密码管理</div>
+      <div class="card-desc">每位护士密码独立。管理员可重置任意护士密码，留空则重置为默认密码 XNL226。</div>
+      <table class="tbl-wrap" style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <thead style="background:linear-gradient(135deg,var(--ink),var(--ink-light));"><tr>
+          <th style="padding:11px 13px;color:rgba(255,255,255,.8);font-size:12px;text-align:left;">工号</th>
+          <th style="padding:11px 13px;color:rgba(255,255,255,.8);font-size:12px;text-align:left;">姓名</th>
+          <th style="padding:11px 13px;color:rgba(255,255,255,.8);font-size:12px;text-align:left;">密码状态</th>
+          <th style="padding:11px 13px;color:rgba(255,255,255,.8);font-size:12px;text-align:left;">操作</th>
+        </tr></thead>
+        <tbody>${nurses.map(n=>`<tr style="border-bottom:1px solid var(--paper-dark);">
+          <td style="padding:10px 13px;font-size:13px;color:var(--muted);">${n.employeeId}</td>
+          <td style="padding:10px 13px;font-size:14px;font-weight:600;">${n.name}</td>
+          <td style="padding:10px 13px;">${n.hasCustomPassword
+            ?'<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:#eafaf1;color:var(--success);">已设个人密码</span>'
+            :'<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:var(--paper-dark);color:var(--muted);">默认密码</span>'}</td>
+          <td style="padding:10px 13px;">
+            <button class="btn btn-danger btn-sm" onclick="resetNursePw('${n.employeeId}','${n.name}')" style="padding:4px 10px;">重置密码</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">👩‍⚕️ 护士人员管理</div>
+      <div class="card-desc">新增或删除护士账号，修改后实时同步到登录和被质控者列表</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <thead style="background:var(--paper-dark);"><tr>
+          <th style="padding:9px 13px;font-size:12px;font-weight:600;color:var(--muted);text-align:left;">工号</th>
+          <th style="padding:9px 13px;font-size:12px;font-weight:600;color:var(--muted);text-align:left;">姓名</th>
+          <th style="padding:9px 13px;font-size:12px;font-weight:600;color:var(--muted);text-align:left;">操作</th>
+        </tr></thead>
+        <tbody>${nurses.map(n=>`<tr style="border-bottom:1px solid var(--paper-dark);">
+          <td style="padding:9px 13px;"><input type="text" id="neid_${n.id}" value="${n.employeeId}" style="width:100%;padding:5px 9px;border:1.5px solid transparent;border-radius:6px;font-size:13px;background:transparent;outline:none;font-family:'Noto Sans SC',sans-serif;" onfocus="this.style.border='1.5px solid var(--blue)';this.style.background='white'" onblur="this.style.border='1.5px solid transparent';this.style.background='transparent'"></td>
+          <td style="padding:9px 13px;"><input type="text" id="nnm_${n.id}" value="${n.name}" style="width:100%;padding:5px 9px;border:1.5px solid transparent;border-radius:6px;font-size:13px;background:transparent;outline:none;font-family:'Noto Sans SC',sans-serif;" onfocus="this.style.border='1.5px solid var(--blue)';this.style.background='white'" onblur="this.style.border='1.5px solid transparent';this.style.background='transparent'"></td>
+          <td style="padding:9px 13px;display:flex;gap:5px;">
+            <button class="btn btn-blue btn-sm" onclick="saveNurse(${n.id})" style="padding:4px 10px;">保存</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteNurse(${n.id},'${n.name}')" style="padding:4px 10px;">删除</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--paper);padding:14px;border-radius:12px;border:1.5px dashed var(--border);">
+        <div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">新工号</div><input type="text" id="newEid" placeholder="例如 N999" style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;background:white;"></div>
+        <div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">新姓名</div><input type="text" id="newNm" placeholder="真实姓名" style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;background:white;"></div>
+        <button class="btn btn-blue" onclick="addNurse()">＋ 添 加</button>
+      </div>
+      <div class="err-msg" id="nurseErr" style="margin-top:8px;"></div>
+    </div>`;
+}
+window.renderSettings = renderSettings;
+
+window.saveAdminPw = async function() {
+  const old=document.getElementById('ap0').value, nw=document.getElementById('ap1').value, cf=document.getElementById('ap2').value;
+  const err=document.getElementById('apErr');
+  if(nw!==cf){err.textContent='两次密码不一致';err.style.display='block';return;}
+  showLoading(); const res=await ConfigAPI.changeAdminPassword(old,nw); hideLoading();
+  if(res?.code!==200){err.textContent=res?.message||'修改失败';err.style.display='block';return;}
+  err.style.display='none'; toast('管理员密码已修改','success');
+  dataOk=false;statsOk=false;settingsOk=false;
+  ['dataLock','statsLock','settingsLock'].forEach(id=>{document.getElementById(id).style.display='block';});
+  ['dataContent','statsContent','settingsContent'].forEach(id=>{document.getElementById(id).style.display='none';});
+  alert('管理员密码已修改，请重新验证。');
+};
+
+window.resetNursePw = async function(empId, name) {
+  const newPw = window.prompt(`重置「${name}（${empId}）」的密码\n\n输入新密码（最少4位），留空则重置为默认密码 XNL226：`);
+  if (newPw === null) return;
+  showLoading();
+  const res = await NurseAPI.resetPassword(empId, newPw.trim()||'');
+  hideLoading();
+  if(res?.code!==200){toast(res?.message||'重置失败','error');return;}
+  toast('密码已重置','success'); renderSettings();
+};
+
+window.saveNurse = async function(id) {
+  const eid=document.getElementById('neid_'+id).value.trim();
+  const nm =document.getElementById('nnm_'+id).value.trim();
+  if(!eid||!nm){toast('工号和姓名不能为空','error');return;}
+  showLoading(); const res=await NurseAPI.update(id,{employeeId:eid,name:nm,enabled:true}); hideLoading();
+  if(res?.code!==200){toast(res?.message||'保存失败','error');return;}
+  toast('保存成功','success'); renderSettings();
+};
+
+window.deleteNurse = async function(id, name) {
+  if(!await confirm(`确定删除护士「${name}」？`))return;
+  showLoading(); const res=await NurseAPI.delete(id); hideLoading();
+  if(res?.code!==200){toast(res?.message||'删除失败','error');return;}
+  toast('已删除','success'); renderSettings();
+};
+
+window.addNurse = async function() {
+  const eid=document.getElementById('newEid').value.trim();
+  const nm =document.getElementById('newNm').value.trim();
+  const err=document.getElementById('nurseErr');
+  if(!eid||!nm){err.textContent='请填写工号和姓名';err.style.display='block';return;}
+  showLoading(); const res=await NurseAPI.create({employeeId:eid,name:nm}); hideLoading();
+  if(res?.code!==200){err.textContent=res?.message||'添加失败';err.style.display='block';return;}
+  err.style.display='none'; toast('添加成功','success');
+  document.getElementById('newEid').value=''; document.getElementById('newNm').value='';
+  renderSettings();
+  const nr=await NurseAPI.listEnabled(); if(nr?.code===200)nurseList=nr.data;
+};
+</script>
+</body>
+</html>

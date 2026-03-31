@@ -266,7 +266,7 @@
           <label style="font-size:13px;color:var(--muted);font-weight:600;">质控日期：</label>
           <input type="date" id="qcDate" readonly
             style="padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;
-            font-size:13px;background:var(--paper-dark);cursor:default;outline:none;">
+            font-size:13px;background:var(--paper);outline:none;">
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:13px;color:var(--muted);font-weight:600;">填报人：</label>
@@ -850,7 +850,7 @@ async function renderData() {
         <th>质控日期</th><th>填报人</th><th>质控者</th>
         <th>昨日人数</th><th>今日人数</th><th>陪护率</th>
         <th>维度</th><th>查检条目</th><th>类型</th><th>完成</th>
-        <th>质控人数</th><th>问题人数</th><th>不适用</th><th>问题汇总</th><th>被质控者</th>
+        <th>质控人数</th><th>问题人数</th><th>不适用</th><th>问题汇总</th><th>原因分析</th><th>备注</th><th>被质控者</th>
         <th>最后修改</th><th>操作</th>
       </tr></thead><tbody>
         ${rows.map(({rep,it})=>`<tr>
@@ -868,6 +868,8 @@ async function renderData() {
           <td>${it?.issueCount?`<span class="badge-issue">${it.issueCount}</span>`:'—'}</td>
           <td>${it?.naCount??'—'}</td>
           <td style="max-width:160px;word-break:break-all;font-size:12px;">${it?.issueSummary||'—'}</td>
+          <td style="max-width:140px;word-break:break-all;font-size:12px;">${it?.rootAnalysis||'—'}</td>
+          <td style="max-width:140px;word-break:break-all;font-size:12px;">${it?.remark||'—'}</td>
           <td style="font-size:12px;">${it?.names||'—'}</td>
           <td style="font-size:11px;color:var(--muted);white-space:nowrap;">${rep.lastEdit||'—'}</td>
           <td><button class="btn btn-danger btn-sm" onclick="delReport(${rep.id})" style="padding:3px 9px;">删除</button></td>

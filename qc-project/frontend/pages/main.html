@@ -264,7 +264,7 @@
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:13px;color:var(--muted);font-weight:600;">质控日期：</label>
-          <input type="date" id="qcDate" readonly
+          <input type="date" id="qcDate"
             style="padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;
             font-size:13px;background:var(--paper);outline:none;">
         </div>
@@ -513,18 +513,10 @@ function buildForm(rep) {
 
       // 被质控者姓名字段
       let namesField;
-      if (isFree) {
-        namesField = `<div class="fld" style="grid-column:span 2;">
-          <label>被质控者姓名（手工填写）</label>
-          <input type="text" id="nm_${key}" value="${(d.names||'').replace(/"/g,'&quot;')}"
-            placeholder="请手工填写姓名，多人用逗号分隔"
-            class="field-group" style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;background:var(--paper);">
-        </div>`;
-      } else {
         const saved = d.names ? d.names.split(',').map(s=>s.trim()).filter(Boolean) : [];
         msState[key] = new Set(saved);
         namesField = `<div class="fld" style="grid-column:span 2;"><label>被质控者姓名（多选）</label>${buildMs(key, saved)}</div>`;
-      }
+      
 
       return `<div class="item-row${hasIssue?' has-issue':''}" id="row_${key}">
         <div class="item-top" onclick="toggleCheck('${key}')">
@@ -940,7 +932,7 @@ async function renderStats(){
     {id:'discipline',name:'纪律',items:['护士到岗情况']},
     {id:'tube',name:'管路',items:['科室患者三管评估已完成','科室新建管路患者已完成"非计划拔管"系统填写']},
     {id:'sevens',name:'7S',items:['科室负责 7S 分担区已完成整理']},
-    {id:'fall',name:'防跌措施落实情况',items:['科室患者胃肠镜相关跌倒风险评估已落实','科室高跌患者危险因素已与护理员完成交接','科室高跌患者均有小黄人（尤其关注转入和术后）','科室高跌患者知晓小黄人作用','科室高跌患者知晓起床三部曲等防跌知识','科室高跌患者知晓呼叫器使用方法（床头及卫生间，并且呼叫器在便于拿取的地方）','科室头晕/黑蒙的患者知晓防跌等处理措施','科室高跌患者拖鞋合格','护理员能说出分管高跌患者及风险因素','科室高跌患者均有红色腕带（尤其关注转入和术后）']},
+    {id:'fall',name:'防跌措施落实情况',items:['科室患者胃肠镜相关跌倒风险评估已落实','科室高跌患者危险因素已与护理员完成交接','科室高跌患者均为红色腕带（尤其关注转入和术后）','科室高跌患者知晓小黄人作用','科室高跌患者知晓起床三部曲等防跌知识','科室高跌患者知晓呼叫器使用方法（床头及卫生间，并且呼叫器在便于拿取的地方）','科室头晕/黑蒙的患者知晓防跌等处理措施','科室高跌患者拖鞋合格','护理员能说出分管高跌患者及风险因素','科室高跌患者均有红色腕带（尤其关注转入和术后）']},
     {id:'specialty',name:'专科指标',items:['责负责心衰患者有体重监测（入组患者标准见备注）','责组完成患者吞咽能力评估（入组患者标准见备注）']}
   ];
 
@@ -1073,7 +1065,7 @@ async function renderStats(){
       <div class="card" style="margin-bottom:0;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
           <div class="card-title" style="margin-bottom:0;">📉 问题频次分析（柏拉图）</div>
-          <select onchange="stTrendDim=this.value;renderStats()"
+          <select onchange="setStTrendDim(this.value)"
             style="padding:5px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none;cursor:pointer;background:white;">
             ${dimOptions}
           </select>
@@ -1251,6 +1243,7 @@ async function renderStats(){
 }
 window.renderStats = renderStats;
 
+window.setStTrendDim = function(v){ stTrendDim = v; renderStats(); };
 window.stPreset = function(p){
   const now=new Date();
   stEnd=today();

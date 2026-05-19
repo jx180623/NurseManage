@@ -325,10 +325,6 @@
   <div id="settingsContent" style="display:none;"></div>
 </div>
 
-<div class="toast" id="toastOk"  style="background:var(--success);color:#fff;">✓ 操作成功</div>
-<div class="toast" id="toastSave" style="background:var(--blue);color:#fff;top:120px;">✓ 保存成功</div>
-<div class="toast" id="toastPw"   style="background:var(--blue);color:#fff;top:120px;">✓ 密码修改成功</div>
-
 <!-- 打印专用容器（屏幕上隐藏，打印时显示） -->
 <div id="printContainer"></div>
 
@@ -808,6 +804,21 @@ window.unlockData = async function() {
 
 async function renderData() {
   const el = document.getElementById('dataContent');
+  if(document.getElementById('startQ') != null && document.getElementById('startQ') != "" && document.getElementById('startQ') != "undefined"){
+
+    filterStart = document.getElementById('startQ').value;
+  }else{
+    const now=new Date();
+    filterStart = new Date(now.getFullYear(),now.getMonth(),2).toISOString().slice(0,10);
+  }
+  if(document.getElementById('endQ') != null && document.getElementById('endQ') != "" && document.getElementById('endQ') != "undefined"){
+
+    filterEnd = document.getElementById('endQ').value;
+  }else{
+    filterEnd=today();
+  }
+  console.log("startQ"+filterStart);
+  console.log("endQ"+filterEnd);
   el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">加载中…</div>';
   const res = await ReportAPI.adminAll(filterStart||null, filterEnd||null);
   if (res?.code !== 200) { el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--crimson);">${res?.message||'加载失败'}</div>`; return; }
@@ -831,8 +842,8 @@ async function renderData() {
       </div>
     </div>
     <div class="filter-bar">
-      <label>起始：</label><input type="date" value="${filterStart}" onchange="filterStart=this.value;renderData()">
-      <label>结束：</label><input type="date" value="${filterEnd}" onchange="filterEnd=this.value;renderData()">
+      <label>起始：</label><input id = "startQ" type="date" value="${filterStart}" onchange="renderData()">
+      <label>结束：</label><input id = "endQ" type="date"  value="${filterEnd}" onchange="renderData()">
       <button class="btn btn-outline btn-sm" onclick="filterStart='';filterEnd='';renderData()">重置</button>
       <span class="record-count">${rows.length} 行</span>
     </div>
@@ -898,11 +909,19 @@ window.unlockStats = async function() {
   statsOk=true;
   document.getElementById('statsLock').style.display='none';
   document.getElementById('statsContent').style.display='block';
-  // 默认统计近3个月
+  // 默认统计本月
   const now=new Date();
   stEnd=today();
-  stStart=new Date(now.getFullYear(),now.getMonth()-2,1).toISOString().slice(0,10);
+  stStart=stStart=new Date(now.getFullYear(),now.getMonth(),2).toISOString().slice(0,10);
   renderStats();
+};
+
+window.queryData = function() {
+  // 每次点击时，实时获取输入框的最新值
+   stStart = document.getElementById('st_s').value;
+   stEnd = document.getElementById('st_e').value;
+
+  renderStats(); // 调用渲染函数
 };
 
 function calcItemRate(cnt,issue,na){
@@ -1018,7 +1037,7 @@ async function renderStats(){
           <input type="date" id="st_s" value="${stStart}" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;outline:none;">
           <label style="font-size:13px;color:var(--muted);font-weight:600;">截止：</label>
           <input type="date" id="st_e" value="${stEnd}" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;outline:none;">
-          <button class="btn btn-red btn-sm" onclick="stStart=document.getElementById('st_s').value;stEnd=document.getElementById('st_e').value;renderStats()">查询</button>
+          <button type="button" id="queryBtn" class="btn btn-red btn-sm" onclick ="queryData()">查询</button>
           <button class="btn btn-outline btn-sm" onclick="stPreset('month')">本月</button>
           <button class="btn btn-outline btn-sm" onclick="stPreset('quarter')">本季</button>
           <button class="btn btn-outline btn-sm" onclick="stPreset('year')">本年</button>
@@ -1247,9 +1266,9 @@ window.setStTrendDim = function(v){ stTrendDim = v; renderStats(); };
 window.stPreset = function(p){
   const now=new Date();
   stEnd=today();
-  if(p==='month')   stStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
-  else if(p==='quarter'){const q=Math.floor(now.getMonth()/3);stStart=new Date(now.getFullYear(),q*3,1).toISOString().slice(0,10);}
-  else stStart=new Date(now.getFullYear(),0,1).toISOString().slice(0,10);
+  if(p==='month')   stStart=new Date(now.getFullYear(),now.getMonth(),2).toISOString().slice(0,10);
+  else if(p==='quarter'){const q=Math.floor(now.getMonth()/3);stStart=new Date(now.getFullYear(),q*3,2).toISOString().slice(0,10);}
+  else stStart=new Date(now.getFullYear(),0,2).toISOString().slice(0,10);
   renderStats();
 };
 
@@ -1406,6 +1425,7 @@ window.addNurse = async function() {
   renderSettings();
   const nr=await NurseAPI.listEnabled(); if(nr?.code===200)nurseList=nr.data;
 };
+
 </script>
 </body>
 </html>
